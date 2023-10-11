@@ -1,1 +1,3 @@
-# Code repository for XXXX
+# Code repository for "*Glacio-hydrological projections in data scarce regions based on Long Short-Term Memory (LSTM) neural networks and ice-dynamical glacier evolution modeling: A case study in Western Patagonia*"
+
+Work in progress...
