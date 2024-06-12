@@ -1,4 +1,4 @@
-# Code for the baseline climate  -----------------------------------------------------------
+# Historical and future climate for all catchments  -----------------------------------------------------------
 # Developed by Rodrigo Aguayo (2023)
 
 rm(list=ls())
@@ -11,7 +11,7 @@ source("elevationZones.R")
 library("terra")
 library("sf")
 
-setwd("/home/rooda/Dropbox/Patagonia/")
+setwd("/home/rooda/OneDrive/Patagonia/")
 terra::gdalCache(30000) # config terra cache for better performance
 
 # function to extract time series for each catchment
@@ -50,37 +50,42 @@ for(basin in 1:length(catchments_pmet_ng)) {
 catchments_all  <- vect("GIS South/Basins_Patagonia_all.shp")
 catchments_all_ng  <- erase(catchments_all, rgi7_hydro) #
 
-# this does not an impact since the glacier runoff is weight by the glacier area
+# this does not have an impact as the glacier runoff is weighted by the glacier area
 to_recover <- catchments_all$gauge_id[!(catchments_all$gauge_id %in% catchments_all_ng$gauge_id)]
 to_recover <- catchments_all[catchments_all$gauge_id %in% to_recover]
 catchments_all_ng <- rbind(catchments_all_ng, to_recover)
 
-# Reference climate: PMET -------------------------------------------------------------------------
+# Baseline climate: PMET -------------------------------------------------------------------------
 
 path <- "/home/rooda/Hydro_results/climate_catchments/"
-pp   <- rast("Data/Precipitation/PP_PMETsim_1980_2020_v10d.nc")   
-pp   <- pp[[time(pp) <= as.Date("2019-12-31")]]
+pp   <- rast("Data/Zenodo/v11/PP_PMETsim_1980_2020_v11d.nc")   
+pp   <- pp[[as.Date("2000-01-01") <= time(pp) &  time(pp) <= as.Date("2019-12-31")]]
 
-write.csv(ts_extract(pp, catchments_pmet_ng), paste0(path, "PP_ref_PMET_basins.csv"))
+write.csv(ts_extract(pp, catchments_pmet),    paste0(path, "PP_ref_PMET_basins_full.csv"))
+write.csv(ts_extract(pp, catchments_pmet_ng), paste0(path, "PP_ref_PMET_basins_ng.csv"))
 write.csv(ts_extract(pp, catchments_pmet_eb), paste0(path, "PP_ref_PMET_basins_eb.csv"))
-write.csv(ts_extract(pp, catchments_all_ng),  paste0(path, "PP_ref_all_basins.csv"))
+write.csv(ts_extract(pp, catchments_all_ng),  paste0(path, "PP_ref_all_basins_ng.csv"))
 
-t2m  <- rast("Data/Temperature/Tavg_PMETsim_1980_2020_v10d.nc", subds = "t2m") 
-t2m  <- t2m[[time(t2m) <= as.Date("2019-12-31")]]
-write.csv(ts_extract(t2m, catchments_pmet_ng), paste0(path, "T2M_ref_PMET_basins.csv"))
+t2m  <- rast("Data/Zenodo/v11/Tavg_PMETsim_1980_2020_v11d.nc") 
+t2m   <- t2m[[as.Date("2000-01-01") <= time(t2m) &  time(t2m) <= as.Date("2019-12-31")]]
+
+write.csv(ts_extract(t2m, catchments_pmet),    paste0(path, "T2M_ref_PMET_basins_full.csv"))
+write.csv(ts_extract(t2m, catchments_pmet_ng), paste0(path, "T2M_ref_PMET_basins_ng.csv"))
 write.csv(ts_extract(t2m, catchments_pmet_eb), paste0(path, "T2M_ref_PMET_basins_eb.csv"))
-write.csv(ts_extract(t2m, catchments_all_ng),  paste0(path, "T2M_ref_all_basins.csv"))
+write.csv(ts_extract(t2m, catchments_all_ng),  paste0(path, "T2M_ref_all_basins_ng.csv"))
 
-pet  <- rast("Data/Evapotranspiration/Ep_PMET_1980_2020d.nc")
-pet  <- pet[[time(pet) <= as.Date("2019-12-31")]]
-write.csv(ts_extract(pet, catchments_pmet_ng), paste0(path, "PET_ref_PMET_basins.csv"))
+pet  <- rast("Data/Evapotranspiration/Ep_PMETsim_1980_2020d.nc")
+pet  <- pet[[as.Date("2000-01-01") <= time(pet) &  time(pet) <= as.Date("2019-12-31")]]
+
+write.csv(ts_extract(pet, catchments_pmet),    paste0(path, "PET_ref_PMET_basins_full.csv"))
+write.csv(ts_extract(pet, catchments_pmet_ng), paste0(path, "PET_ref_PMET_basins_ng.csv"))
 write.csv(ts_extract(pet, catchments_pmet_eb), paste0(path, "PET_ref_PMET_basins_eb.csv"))
-write.csv(ts_extract(pet, catchments_all_ng),  paste0(path, "PET_ref_all_basins.csv"))
+write.csv(ts_extract(pet, catchments_all_ng),  paste0(path, "PET_ref_all_basins_ng.csv"))
 
-# Future climate ----------------------------------------------------------------------------------
+# Climate projections ----------------------------------------------------------------------------------
 setwd("/home/rooda/Hydro_results/")
 
-gcms  <- c("CMCC-ESM2", "GFDL-ESM4", "INM-CM5-0", "KACE-1-0-G",  "MIROC6", "MPI-ESM1-2-HR", "MPI-ESM1-2-LR", "MRI-ESM2-0")
+gcms  <- c("GFDL-ESM4", "IPSL-CM6A-LR", "MIROC6", "MPI-ESM1-2-LR", "MRI-ESM2-0")
 gcms  <- c(paste(gcms, "ssp126", sep = "_"), paste(gcms, "ssp585", sep = "_"))
 
 for (gcm in gcms) {
@@ -88,19 +93,26 @@ for (gcm in gcms) {
   pattern <- paste("PP", gcm, sep = "_")
   pp   <- rast(list.files("future_corrected", pattern, full.names = T))
   names(pp) <- time(pp)
-  write.csv(ts_extract(pp, catchments_all_ng), paste("climate_catchments/PP", gcm,  "all_basins.csv", sep = "_"))
+  pp <- ts_extract(pp, catchments_all_ng)
+  print(sum(colSums(is.na(pp)) > 0))
+  write.csv(pp, paste("climate_catchments/PP", gcm,  "all_basins.csv", sep = "_"))
   
   pattern <- paste("T2M", gcm, sep = "_")
   t2m  <- rast(list.files("future_corrected", pattern, full.names = T))
   names(t2m) <- time(t2m)
-  write.csv(ts_extract(t2m, catchments_all_ng), paste("climate_catchments/T2M", gcm,  "all_basins.csv", sep = "_"))
+  t2m <- ts_extract(t2m, catchments_all_ng)
+  print(sum(colSums(is.na(t2m)) > 0))
+  write.csv(t2m, paste("climate_catchments/T2M", gcm,  "all_basins.csv", sep = "_"))
   
   pattern <- paste("PET", gcm, sep = "_")
   pet  <- rast(list.files("future_corrected", pattern, full.names = T))
   names(pet) <- time(pet)
-  write.csv(ts_extract(pet, catchments_all_ng), paste("climate_catchments/PET", gcm,  "all_basins.csv", sep = "_"))
+  pet <- ts_extract(pet, catchments_all_ng)
+  print(sum(colSums(is.na(pet)) > 0))
+  write.csv(pet, paste("climate_catchments/PET", gcm,  "all_basins.csv", sep = "_"))
+  
   cat(gcm)
 }
-  
+
 
 
