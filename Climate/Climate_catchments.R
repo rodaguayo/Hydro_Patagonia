@@ -59,7 +59,7 @@ catchments_all_ng <- rbind(catchments_all_ng, to_recover)
 
 path <- "/home/rooda/Hydro_results/climate_catchments/"
 pp   <- rast("Data/Zenodo/v11/PP_PMETsim_1980_2020_v11d.nc")   
-pp   <- pp[[as.Date("2000-01-01") <= time(pp) &  time(pp) <= as.Date("2019-12-31")]]
+pp   <- pp[[as.Date("1990-01-01") <= time(pp) &  time(pp) <= as.Date("2019-12-31")]]
 
 write.csv(ts_extract(pp, catchments_pmet),    paste0(path, "PP_ref_PMET_basins_full.csv"))
 write.csv(ts_extract(pp, catchments_pmet_ng), paste0(path, "PP_ref_PMET_basins_ng.csv"))
@@ -67,7 +67,7 @@ write.csv(ts_extract(pp, catchments_pmet_eb), paste0(path, "PP_ref_PMET_basins_e
 write.csv(ts_extract(pp, catchments_all_ng),  paste0(path, "PP_ref_all_basins_ng.csv"))
 
 t2m  <- rast("Data/Zenodo/v11/Tavg_PMETsim_1980_2020_v11d.nc") 
-t2m   <- t2m[[as.Date("2000-01-01") <= time(t2m) &  time(t2m) <= as.Date("2019-12-31")]]
+t2m   <- t2m[[as.Date("1990-01-01") <= time(t2m) &  time(t2m) <= as.Date("2019-12-31")]]
 
 write.csv(ts_extract(t2m, catchments_pmet),    paste0(path, "T2M_ref_PMET_basins_full.csv"))
 write.csv(ts_extract(t2m, catchments_pmet_ng), paste0(path, "T2M_ref_PMET_basins_ng.csv"))
@@ -75,7 +75,7 @@ write.csv(ts_extract(t2m, catchments_pmet_eb), paste0(path, "T2M_ref_PMET_basins
 write.csv(ts_extract(t2m, catchments_all_ng),  paste0(path, "T2M_ref_all_basins_ng.csv"))
 
 pet  <- rast("Data/Evapotranspiration/Ep_PMETsim_1980_2020d.nc")
-pet  <- pet[[as.Date("2000-01-01") <= time(pet) &  time(pet) <= as.Date("2019-12-31")]]
+pet  <- pet[[as.Date("1990-01-01") <= time(pet) &  time(pet) <= as.Date("2019-12-31")]]
 
 write.csv(ts_extract(pet, catchments_pmet),    paste0(path, "PET_ref_PMET_basins_full.csv"))
 write.csv(ts_extract(pet, catchments_pmet_ng), paste0(path, "PET_ref_PMET_basins_ng.csv"))
