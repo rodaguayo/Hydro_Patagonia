@@ -1,3 +1,5 @@
+# Calculate catchment-wide attribute -------------------------------------------------------------
+
 rm(list=ls())
 cat("\014")  
 
@@ -18,11 +20,17 @@ basin_shp  <- st_read("GIS/Basins_Patagonia_all.shp")
 # Reference period
 period <- c(as.POSIXct("1989-12-31"), as.POSIXct("2019/12/31"))
 
+# correct location
+basin_shp$lon <- st_coordinates(st_centroid(basin_shp)$geometry)[,1]
+basin_shp$lat <- st_coordinates(st_centroid(basin_shp)$geometry)[,2]
+colnames(basin_shp)[colnames(basin_shp) == 'lon'] <- 'cenlon'
+colnames(basin_shp)[colnames(basin_shp) == 'lat'] <- 'cenlat'
+
+# dem-related attributes
 dem <- rast(paste0(path_pmet, "GIS/dem_patagonia3f.tif"))
 dem <- subst(dem, NA, 0)  # NAs to sea level (= 0)
 slope <- terrain(dem, v='aspect', unit='degrees')
 
-# assign values
 basin_shp$elev_mean   <- round(exact_extract(dem,   basin_shp, "mean"),   1)
 basin_shp$elev_median <- round(exact_extract(dem,   basin_shp, "median"), 1)
 basin_shp$slope_mean  <- round(exact_extract(slope, basin_shp, "median"), 1)
