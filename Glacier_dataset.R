@@ -1,3 +1,5 @@
+# Create glacier dataset based on RGI7 ------------------------------------------------------------
+
 rm(list=ls())
 cat("\014")  
 
@@ -7,25 +9,27 @@ library("terra")
 library("dplyr")
 library("sf")
 
-setwd("/home/rooda/Dropbox/Patagonia/")
+setwd("/home/rooda/OneDrive/DeepHydro/")
+path_pmet <- "/home/rooda/OneDrive/PatagoniaMet/"
 
 # read file from catchment_delimitation.R
-all_basins <- st_read("GIS South/Basins_Patagonia_all.shp")
+all_basins <- st_read("GIS/Basins_Patagonia_all.shp")
 all_basins <- st_transform(all_basins, 32718) # UTM 18S for the glaciers
 
 # read file from catchment_delimitation.R
-pmet_basins <- st_read("GIS South/Basins_PMETobs_int.shp")
-pmet_basins$gauge_code <- read.csv("Data/Streamflow/Q_PMETobs_v10_metadata.csv")$gauge_code
+pmet_basins <- st_read(paste0(path_pmet, "GIS/Basins_PMETobs_int_dev.shp"))
+pmet_basins$gauge_code <- read.csv(paste0(path_pmet, "Zenodo/v11/Q_PMETobs_v11_metadata.csv"))$gauge_code
 pmet_basins <- st_transform(pmet_basins, 32718) # UTM 18S for the glaciers
 
 # dem file
-dem <- rast("GIS South/dem_patagonia3f.tif")
+dem <- rast(paste0(path_pmet, "GIS/dem_patagonia3f.tif"))
 dem <- project(dem, "epsg:32718", method = "bilinear")
 dem <- subst(dem, NA, 0)  # NAs to sea level (= 0)
 
 # 1. RGI glaciers: Selection and basin_id assignment ----------------------------------------------
-RGI  <- st_read("GIS South/Glaciers/RGI7.shp")
+RGI  <- st_read(paste0(path_pmet, "GIS/Glaciers/RGI7.shp"))
 RGI  <- subset(RGI, RGI$cenlat < -40.7)
+RGI  <- subset(RGI, RGI$cenlon < -68.35) # PMET extent
 RGI  <- RGI[,c("rgi_id", "src_date", "cenlon", "cenlat")]
 RGI  <- st_transform(RGI, 32718) # UTM 18S
 RGI$area_km2 <- expanse(vect(RGI), unit="km")
@@ -60,12 +64,13 @@ RGI <- subset(RGI, !is.na(RGI$ID_basin))
 
 # 2. Glacier attributes ---------------------------------------------------------------------------
 
-## 2.1 Volume data from and Millan et al. 2022 --------------------------------------------------
-vol_M22  <- rast("GIS South/Glaciers/Thickness_2022.tif")
+## 2.1 Volume data from and Millan et al. 2022 ----------------------------------------------------
+vol_M22  <- rast(paste0(path_pmet, "GIS/Glaciers/Thickness_2022.tif"))
 
 RGI$vol_M22  <- exact_extract(vol_M22,  RGI, "sum") * res(vol_M22)[1] * res(vol_M22)[2] * 1e-9
 RGI$vol_M22c <- round(exact_extract(not.na(vol_M22),  RGI, "mean"), 3)
 RGI$vol_M22[RGI$vol_M22c < 0.5] <- NA
+RGI$vol_M22[RGI$vol_M22 == 0]   <- NA
 
 for (i in sort(unique(RGI$ID_Zone))) { # VAS based on M22 data 
   model <- lm(log(RGI$vol_M22)[RGI$ID_Zone == i & RGI$vol_M22c > 0.9] ~ log(RGI$area_km2)[RGI$ID_Zone == i & RGI$vol_M22c > 0.9] )
@@ -73,7 +78,7 @@ for (i in sort(unique(RGI$ID_Zone))) { # VAS based on M22 data
 }
 
 ## 2.2 dmdtda: specific-mass change rate in meters water-equivalent per year ----------------------
-dhdt_21   <- rast("GIS South/Glaciers/dhdt_2021.tif")
+dhdt_21   <- rast(paste0(path_pmet, "GIS/Glaciers/dhdt_2021.tif"))
 
 RGI$dmdtda_21  <- exact_extract(dhdt_21,  RGI, "mean") * 0.850 
 RGI$dmdtda_21c <- round(exact_extract(not.na(dhdt_21),  RGI, "mean"), 3)
@@ -85,12 +90,18 @@ for (i in sort(unique(RGI$ID_Zone))) {
   RGI$dmdtda_21[RGI$ID_Zone == i & is.na(RGI$dmdtda_21)] <- dmdtda_RGI_mean[i]
 }
 
-# 3. Save glacier file ----------------------------------------------------------------------------
+# 3. Cook RGI df ---------------------------------------------------------------------------------
 
 RGI <- st_transform(RGI, 4326) # go back to WGS84 (RGI format)
 
 # source year in RGI format
-RGI$src_date <- paste0(substr(RGI$src_date, 0,4), substr(RGI$src_date, 6,7), substr(RGI$src_date, 9,10)) 
+RGI$BgnDate <- paste0(substr(RGI$src_date, 0,4), substr(RGI$src_date, 6,7), substr(RGI$src_date, 9,10)) 
+
+# for OGGM
+RGI["GLIMSId"]  <- '' 
+RGI['O1Region'] <- '17'
+RGI['O2Region'] <- '02'
+RGI['RGIId'] <- paste0("RGI70-17.", substr(RGI$rgi_id, 19,24)) 
 
 # save using terra (problems in sf)
-writeVector(vect(RGI), "GIS South/Glaciers/RGI7_Hydro.shp", overwrite=TRUE)
+writeVector(vect(RGI), "/GIS/RGI7_Hydro.shp", overwrite=TRUE)
